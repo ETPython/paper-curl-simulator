@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用紙カール シミュレーター</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&family=Barlow+Condensed:wght@400;600;700&display=swap');
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2236;--border:#243050;--accent:#3b82f6;--accent2:#06b6d4;--accent3:#f59e0b;--danger:#ef4444;--success:#10b981;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(59,130,246,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.header{position:relative;z-index:10;padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:rgba(10,14,26,.98);flex-shrink:0}
+.header-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.header-title{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:700;letter-spacing:.05em;color:#fff}
+.header-sub{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.badge{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent2);border:1px solid var(--accent2);padding:3px 10px;border-radius:20px;letter-spacing:.1em}
+.main{position:relative;z-index:1;display:grid;grid-template-columns:350px 1fr;flex:1;overflow:hidden}
+.left-panel{border-right:1px solid var(--border);overflow-y:auto;background:rgba(17,24,39,.7);display:flex;flex-direction:column}
+.left-panel::-webkit-scrollbar{width:4px}
+.left-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.section{border-bottom:1px solid var(--border);padding:10px 16px}
+.section-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;user-select:none}
+.section-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.section-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)}
+.section-arrow{margin-left:auto;color:var(--text3);font-size:10px;transition:transform .2s}
+.section.collapsed .section-arrow{transform:rotate(-90deg)}
+.section.collapsed .section-body{display:none}
+.param-row{margin-bottom:9px}
+.param-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.param-name{font-size:10px;color:var(--text2)}
+.param-value{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--accent);background:rgba(59,130,246,.12);padding:1px 5px;border-radius:4px}
+.param-unit{font-size:9px;color:var(--text3);margin-left:2px}
+input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #fff;box-shadow:0 0 5px rgba(59,130,246,.5)}
+.range-bounds{display:flex;justify-content:space-between;margin-top:1px}
+.range-bound{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 7px;border-radius:6px;font-size:11px;cursor:pointer;outline:none}
+select:focus{border-color:var(--accent)}
+.radio-group{display:flex;gap:4px;flex-wrap:wrap}
+.radio-btn{flex:1;min-width:50px;padding:4px 5px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:10px;color:var(--text2);cursor:pointer;text-align:center;transition:all .15s;user-select:none}
+.radio-btn.active{background:rgba(59,130,246,.15);border-color:var(--accent);color:var(--accent)}
+.run-btn{margin:12px 16px 16px;padding:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;cursor:pointer;transition:all .2s;width:calc(100% - 32px)}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(59,130,246,.45)}
+.run-btn:active{transform:translateY(0)}
+.run-btn.running{background:linear-gradient(135deg,#1d4ed8,#0891b2);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.75}}
+.right-panel{display:flex;flex-direction:column;overflow:hidden}
+.viz-area{flex:1;padding:12px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.viz-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex:1;min-height:0}
+.viz-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;overflow:hidden}
+.viz-card-title{font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;flex-shrink:0}
+.canvas-wrap{flex:1;min-height:0;min-width:0;position:relative}
+.canvas-wrap canvas{position:absolute;top:0;left:0}
+.shape-card{height:110px;flex-shrink:0}
+.result-panel{flex-shrink:0;border-top:1px solid var(--border);background:var(--surface);padding:10px 16px}
+.result-title{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:7px}
+.result-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-bottom:7px}
+.result-card{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 9px}
+.result-card.hi{border-color:var(--accent)}
+.result-card-label{font-size:9px;color:var(--text3);margin-bottom:2px}
+.result-card-value{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;line-height:1}
+.result-card-unit{font-size:9px;color:var(--text3);margin-top:2px;font-family:'JetBrains Mono',monospace}
+.status-row{display:flex;align-items:center;gap:10px}
+.curl-indicator{padding:3px 11px;border-radius:5px;font-size:11px;font-weight:500}
+.curl-up{background:rgba(239,68,68,.15);color:#ef4444}
+.curl-flat{background:rgba(16,185,129,.15);color:#10b981}
+.curl-down{background:rgba(59,130,246,.15);color:#3b82f6}
+.res-note{margin-left:auto;font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.progress-bar-wrap{height:3px;background:var(--border);border-radius:2px;margin-bottom:6px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:0%;transition:width .05s}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-icon">📄</div>
+  <div>
+    <div class="header-title">用紙カール シミュレーター</div>
+    <div class="header-sub">XEROGRAPHIC PAPER CURL SIMULATION — FX MODEL v2 (Ogino 2012 / Oohara 2012 / Takahashi 2012)</div>
+  </div>
+  <div class="badge">PHYSICS-BASED</div>
+</div>
+<div class="main">
+  <div class="left-panel">
+    <!-- 用紙物性 -->
+    <div class="section" id="sec-paper">
+      <div class="section-header" onclick="toggleSection('sec-paper')">
+        <div class="section-dot" style="background:#06b6d4"></div>
+        <span class="section-title">用紙物性</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">紙種プリセット</span></div>
+          <select id="paperType" onchange="onPaperTypeChange()">
+            <option value="plain">普通紙（PPC）</option>
+            <option value="recycled">再生紙</option>
+            <option value="thick">厚紙</option>
+            <option value="coated">コート紙</option>
+          </select>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">用紙厚さ</span><span><span class="param-value" id="val-thickness">90</span><span class="param-unit">μm</span></span></div>
+          <input type="range" id="thickness" min="60" max="300" value="90" step="5" oninput="syncP('thickness','val-thickness',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">60μm</span><span class="range-bound">300μm</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">初期含水率</span><span><span class="param-value" id="val-moisture">6.0</span><span class="param-unit">wt%</span></span></div>
+          <input type="range" id="moisture" min="2" max="14" value="6" step="0.5" oninput="syncP('moisture','val-moisture',this.value,1)">
+          <div class="range-bounds"><span class="range-bound">2%</span><span class="range-bound">14%</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">ヤング率（MD方向）</span><span><span class="param-value" id="val-youngMD">3500</span><span class="param-unit">MPa</span></span></div>
+          <input type="range" id="youngMD" min="1000" max="7000" value="3500" step="100" oninput="syncP('youngMD','val-youngMD',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">1000</span><span class="range-bound">7000</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">脱湿収縮率（CD方向）</span><span><span class="param-value" id="val-shrinkCD">0.10</span><span class="param-unit">%/%</span></span></div>
+          <input type="range" id="shrinkCD" min="0.02" max="0.25" value="0.10" step="0.01" oninput="syncP('shrinkCD','val-shrinkCD',this.value,2)">
+          <div class="range-bounds"><span class="range-bound">0.02</span><span class="range-bound">0.25</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- 定着条件 -->
+    <div class="section" id="sec-fusing">
+      <div class="section-header" onclick="toggleSection('sec-fusing')">
+        <div class="section-dot" style="background:#f59e0b"></div>
+        <span class="section-title">定着条件</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">高温側ローラー温度</span><span><span class="param-value" id="val-tempHot">160</span><span class="param-unit">℃</span></span></div>
+          <input type="range" id="tempHot" min="80" max="220" value="160" step="5" oninput="syncP('tempHot','val-tempHot',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">80℃</span><span class="range-bound">220℃</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">低温側ローラー温度</span><span><span class="param-value" id="val-tempCold">80</span><span class="param-unit">℃</span></span></div>
+          <input type="range" id="tempCold" min="30" max="160" value="80" step="5" oninput="syncP('tempCold','val-tempCold',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">30℃</span><span class="range-bound">160℃</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">定着時間</span><span><span class="param-value" id="val-fusTime">0.50</span><span class="param-unit">s</span></span></div>
+          <input type="range" id="fusTime" min="0.05" max="5.0" value="0.5" step="0.05" oninput="syncP('fusTime','val-fusTime',this.value,2)">
+          <div class="range-bounds"><span class="range-bound">0.05s</span><span class="range-bound">5.0s</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">画像密度</span><span><span class="param-value" id="val-imgDen">100</span><span class="param-unit">%</span></span></div>
+          <input type="range" id="imgDen" min="0" max="400" value="100" step="10" oninput="syncP('imgDen','val-imgDen',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">0%</span><span class="range-bound">400%</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">定着器構成</span></div>
+          <div class="radio-group">
+            <div class="radio-btn active" data-group="fuser" data-val="2roll" onclick="selectRadio(this)">2-Roll</div>
+            <div class="radio-btn" data-group="fuser" data-val="belt" onclick="selectRadio(this)">Belt Nip</div>
+            <div class="radio-btn" data-group="fuser" data-val="flat" onclick="selectRadio(this)">Flat Nip</div>
+          </div>
+        </div>
+        <div class="param-row" id="row-rollerDia">
+          <div class="param-label"><span class="param-name">ローラー径（2-Roll）</span><span><span class="param-value" id="val-rollerDia">20</span><span class="param-unit">mm</span></span></div>
+          <input type="range" id="rollerDia" min="10" max="80" value="20" step="1" oninput="syncP('rollerDia','val-rollerDia',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">10mm（小径）</span><span class="range-bound">80mm（大径）</span></div>
+        </div>
+        <div class="param-row" id="row-nipWidth">
+          <div class="param-label"><span class="param-name">ニップ幅</span><span><span class="param-value" id="val-nipWidth">6</span><span class="param-unit">mm</span></span></div>
+          <input type="range" id="nipWidth" min="2" max="20" value="6" step="0.5" oninput="syncP('nipWidth','val-nipWidth',this.value,1)">
+          <div class="range-bounds"><span class="range-bound">2mm</span><span class="range-bound">20mm</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- 搬送経路 -->
+    <div class="section" id="sec-path">
+      <div class="section-header" onclick="toggleSection('sec-path')">
+        <div class="section-dot" style="background:#8b5cf6"></div>
+        <span class="section-title">搬送経路</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">搬送経路曲率（平均）</span><span><span class="param-value" id="val-pathCurv">50</span><span class="param-unit">1/m</span></span></div>
+          <input type="range" id="pathCurv" min="0" max="300" value="50" step="5" oninput="syncP('pathCurv','val-pathCurv',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">0</span><span class="range-bound">300</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">機内温度</span><span><span class="param-value" id="val-ambTemp">35</span><span class="param-unit">℃</span></span></div>
+          <input type="range" id="ambTemp" min="15" max="60" value="35" step="1" oninput="syncP('ambTemp','val-ambTemp',this.value,0)">
+          <div class="range-bounds"><span class="range-bound">15℃</span><span class="range-bound">60℃</span></div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">排出経路</span></div>
+          <div class="radio-group">
+            <div class="radio-btn active" data-group="exitPath" data-val="top" onclick="selectRadio(this)">上面排出</div>
+            <div class="radio-btn" data-group="exitPath" data-val="side" onclick="selectRadio(this)">側面排出</div>
+          </div>
+        </div>
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">セット面</span></div>
+          <div class="radio-group">
+            <div class="radio-btn active" data-group="face" data-val="felt" onclick="selectRadio(this)">フェルト面</div>
+            <div class="radio-btn" data-group="face" data-val="wire" onclick="selectRadio(this)">ワイヤー面</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- デカーラ -->
+    <div class="section" id="sec-decurler">
+      <div class="section-header" onclick="toggleSection('sec-decurler')">
+        <div class="section-dot" style="background:#ef4444"></div>
+        <span class="section-title">デカーラ装置</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="param-row">
+          <div class="param-label"><span class="param-name">デカーラ使用</span></div>
+          <div class="radio-group">
+            <div class="radio-btn active" data-group="useDecurler" data-val="yes" onclick="selectRadio(this)">使用する</div>
+            <div class="radio-btn" data-group="useDecurler" data-val="no" onclick="selectRadio(this)">使用しない</div>
+          </div>
+        </div>
+        <div id="decurler-params">
+          <div class="param-row">
+            <div class="param-label"><span class="param-name">ローラー曲率</span><span><span class="param-value" id="val-decurlCurv">250</span><span class="param-unit">1/m</span></span></div>
+            <input type="range" id="decurlCurv" min="50" max="500" value="250" step="10" oninput="syncP('decurlCurv','val-decurlCurv',this.value,0)">
+            <div class="range-bounds"><span class="range-bound">50</span><span class="range-bound">500</span></div>
+          </div>
+          <div class="param-row">
+            <div class="param-label"><span class="param-name">押し込み量</span><span><span class="param-value" id="val-decurlNip">1.5</span><span class="param-unit">mm</span></span></div>
+            <input type="range" id="decurlNip" min="0.5" max="5.0" value="1.5" step="0.1" oninput="syncP('decurlNip','val-decurlNip',this.value,1)">
+            <div class="range-bounds"><span class="range-bound">0.5mm</span><span class="range-bound">5.0mm</span></div>
+          </div>
+          <div class="param-row">
+            <div class="param-label"><span class="param-name">搬送速度</span><span><span class="param-value" id="val-decurlSpd">200</span><span class="param-unit">mm/s</span></span></div>
+            <input type="range" id="decurlSpd" min="50" max="600" value="200" step="10" oninput="syncP('decurlSpd','val-decurlSpd',this.value,0)">
+            <div class="range-bounds"><span class="range-bound">50</span><span class="range-bound">600</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="run-btn" id="runBtn" onclick="runSim()">▶ シミュレーション実行</button>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="viz-area">
+      <div class="viz-row">
+        <div class="viz-card">
+          <div class="viz-card-title">用紙断面 — 含水率分布</div>
+          <div class="canvas-wrap" id="wrapMoisture"><canvas id="cvMoisture"></canvas></div>
+        </div>
+        <div class="viz-card">
+          <div class="viz-card-title">厚さ方向 — 残留応力分布</div>
+          <div class="canvas-wrap" id="wrapStress"><canvas id="cvStress"></canvas></div>
+        </div>
+        <div class="viz-card">
+          <div class="viz-card-title">カール曲率 — 時間履歴</div>
+          <div class="canvas-wrap" id="wrapCurl"><canvas id="cvCurl"></canvas></div>
+        </div>
+      </div>
+      <div class="viz-card shape-card">
+        <div class="viz-card-title">用紙形状プレビュー（排出後）</div>
+        <div class="canvas-wrap" id="wrapShape"><canvas id="cvShape"></canvas></div>
+      </div>
+    </div>
+    <div class="result-panel">
+      <div class="result-title">シミュレーション結果</div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="result-grid">
+        <div class="result-card hi">
+          <div class="result-card-label">最終カール曲率</div>
+          <div class="result-card-value" id="res-final" style="color:var(--accent)">—</div>
+          <div class="result-card-unit">1/m</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">定着後カール</div>
+          <div class="result-card-value" id="res-fusing" style="color:var(--accent3)">—</div>
+          <div class="result-card-unit">1/m</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">ニップ曲率</div>
+          <div class="result-card-value" id="res-nip" style="color:#f97316">—</div>
+          <div class="result-card-unit">1/m</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">搬送経路カール</div>
+          <div class="result-card-value" id="res-path" style="color:#8b5cf6">—</div>
+          <div class="result-card-unit">1/m</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">デカーラ矯正量</div>
+          <div class="result-card-value" id="res-decurl" style="color:var(--danger)">—</div>
+          <div class="result-card-unit">1/m</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">用紙端部浮き量</div>
+          <div class="result-card-value" id="res-height" style="color:var(--success)">—</div>
+          <div class="result-card-unit">mm</div>
+        </div>
+      </div>
+      <div class="status-row">
+        <div class="curl-indicator" id="curl-indicator">— 実行前 —</div>
+        <div class="res-note" id="res-note"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+var S = {
+  thickness:90, moisture:6.0, youngMD:3500, shrinkCD:0.10,
+  tempHot:160, tempCold:80, fusTime:0.5, imgDen:100, fuser:'2roll', rollerDia:20, nipWidth:6,
+  pathCurv:50, ambTemp:35, exitPath:'top', face:'felt',
+  useDecurler:'yes', decurlCurv:250, decurlNip:1.5, decurlSpd:200
+};
+var R = {};
+var animId = null;
+
+var PRESETS = {
+  plain:   {thickness:90,  youngMD:3500, shrinkCD:0.10},
+  recycled:{thickness:100, youngMD:3000, shrinkCD:0.12},
+  thick:   {thickness:210, youngMD:5000, shrinkCD:0.07},
+  coated:  {thickness:90,  youngMD:4000, shrinkCD:0.06}
+};
+
+// ============================================================
+// UI
+// ============================================================
+function syncP(key, dispId, val, dec) {
+  S[key] = parseFloat(val);
+  var el = document.getElementById(dispId);
+  if(el) el.textContent = parseFloat(val).toFixed(dec);
+}
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+function selectRadio(el) {
+  var g = el.dataset.group;
+  document.querySelectorAll('[data-group="'+g+'"]').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  S[g] = el.dataset.val;
+  if(g==='useDecurler'){
+    document.getElementById('decurler-params').style.display = el.dataset.val==='yes'?'block':'none';
+  }
+  if(g==='fuser'){
+    var show = el.dataset.val==='2roll';
+    document.getElementById('row-rollerDia').style.display = show?'block':'none';
+    document.getElementById('row-nipWidth').style.display  = show?'block':'none';
+  }
+}
+function onPaperTypeChange() {
+  var p = PRESETS[document.getElementById('paperType').value];
+  setSlider('thickness', p.thickness, 0);
+  setSlider('youngMD',   p.youngMD,   0);
+  setSlider('shrinkCD',  p.shrinkCD,  2);
+}
+function setSlider(id, val, dec) {
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.value = val;
+  S[id] = parseFloat(val);
+  var d = document.getElementById('val-'+id);
+  if(d) d.textContent = parseFloat(val).toFixed(dec);
+}
+
+// ============================================================
+// PHYSICS
+// ============================================================
+function compute() {
+  var tm = S.thickness * 1e-6;
+  var W  = S.moisture;
+  var E  = S.youngMD * 1e6;
+  var beta = S.shrinkCD;
+  var Th = S.tempHot, Tc = S.tempCold, dT = Th - Tc;
+  var tf = S.fusTime;
+
+  // 1. Moisture migration (Oohara 2012)
+  var D = 1e-9;
+  var tau_m = (tm*tm)/(Math.PI*Math.PI*D);
+  var mig = (1 - Math.exp(-tf/tau_m)) * Math.min(1, dT/60);
+  var dW = 0.30 * mig * W;
+  var Wh = Math.max(0, W - dW);
+  var Wc = W + dW;
+
+  // 2. Bi-metal (Oohara 2012)
+  var tfac = 0.5 + (Th-60)/200;
+  var Sh = beta * Wh * tfac / 100;
+  var Sc = beta * Wc * tfac / 100;
+  var avgT = (Th+Tc)/2;
+  var relax = 0.9*(1-Math.exp(-(avgT-50)/40));
+  relax = Math.max(0,Math.min(0.9,relax));
+  var kf_raw = (3/(2*tm))*(Sc-Sh);
+  var kf = kf_raw*(1-relax*0.4);
+  // ── 2b. Fuser geometry: nip curvature effect (Ogino 2012 §3.1, Ando 2016 §2.2)
+  //
+  // 2-Roll定着器では用紙がローラー表面に沿って曲げられる。
+  // ニップ入口での曲率 κ_nip = 1/R_roller
+  // 用紙表面の曲げひずみ ε_bend = κ_nip × t/2
+  //
+  // 紙の降伏ひずみ（高温時）: ε_y ≈ 0.2〜0.5% (文献: 荻野2012, 安藤2016)
+  // 高温（150℃超）では繊維間結合が軟化しε_yが大幅に低下する
+  //
+  var R_roller = (S.rollerDia * 1e-3) / 2;   // ローラー半径 [m]
+  var kappa_nip = 1.0 / R_roller;             // ニップ入口曲率 [1/m]
+  var nip_w = S.nipWidth * 1e-3;             // ニップ幅 [m]
+
+  // 用紙表面の曲げひずみ [-]
+  var eps_bend_nip = kappa_nip * tm / 2;
+
+  // 降伏ひずみ: 常温0.5%、高温時は温度で軟化（荻野2012 Eq.4, 安藤2016 §2.1）
+  // Th=160℃ → eps_y ≈ 0.15%、Th=80℃ → eps_y ≈ 0.4%
+  var T_softening = Math.min(1.0, Math.max(0, (Th - 60) / 160));
+  var eps_y_ref = 0.005;                              // 常温降伏ひずみ [-]
+  var eps_y = eps_y_ref * (1.0 - 0.70 * T_softening); // 高温軟化後の降伏ひずみ
+
+  // 塑性ひずみ（Ramberg-Osgood 簡略形）
+  // ε_p = max(0, ε_bend - ε_y)^n × coefficient
+  var eps_over = Math.max(0, eps_bend_nip - eps_y);
+  var eps_p = eps_over * 0.55;  // 塑性変換係数（荻野2012 Table1より推定）
+
+  // 残留曲率: 高温ローラー側（表面）が大きく塑性変形 → 低温側へのカール増加
+  // κ_residual = 2×ε_p / t  [1/m]
+  var kappa_nip_residual = (2.0 * eps_p) / tm;
+
+  // ニップ滞留時間による粘性緩和
+  // 搬送速度 v ≈ nip_w / (tf × 0.15) の逆算
+  var v_paper = Math.max(0.02, nip_w / (tf * 0.15 + 0.003));
+  var tau_nip  = nip_w / v_paper;                    // 滞留時間 [s]
+  var visc_relax_nip = Math.min(0.6, tau_nip * 0.4); // 粘性緩和率（最大60%）
+
+  // 定着器構成係数（Belt/Flatはローラー曲率が低い）
+  var fk = {'2roll':1.0, 'belt':0.30, 'flat':0.05}[S.fuser] || 1.0;
+
+  // 合算: 水分移動カール × 構成係数 + ニップ曲げ残留カール × (1-粘性緩和)
+  kf = kf * fk + kappa_nip_residual * fk * (1.0 - visc_relax_nip);
+
+  // 3. Path curl (Ogino 2012, Double Maxwell)
+  var mu_h = 8000*Math.exp(-S.ambTemp/45)*Math.exp(-W/7);
+  var pfrac = S.exitPath==='top'?1.0:0.6;
+  var kp = 0;
+  if(S.pathCurv>0){
+    var tau_v = mu_h*1e-6;
+    kp = 0.004*S.pathCurv*pfrac*(1-Math.exp(-1/(1+tau_v)));
+  }
+  var fsign = S.face==='felt'?1.0:-1.0;
+
+  // 4. Toner image curl (Takahashi 2012 §3.2)
+  // Toner contraction on cooling; larger plastic set in smaller-radius nip
+  var kt = (S.imgDen/400) * 0.9 * fk * (1 + eps_p * 8);
+
+  var kb = (kf+kp+kt)*fsign;
+
+  // 5. Decurler (Takahashi 2012)
+  var kd = 0;
+  if(S.useDecurler==='yes'){
+    var nip = S.decurlNip*1e-3;
+    var kD = S.decurlCurv;
+    var ke = kD*(1-Math.exp(-nip*300));
+    var ey = 0.006+0.002*(tm/1e-4);
+    var eb = ke*tm/2;
+    var plas = Math.max(0,Math.min(1,(eb-ey)/ey));
+    var vfac = Math.exp(-S.decurlSpd/350);
+    var visc = 0.25+0.75*vfac;
+    var cmag = ke*(0.45*plas+0.55*visc)*0.6;
+    kd = -Math.sign(kb)*Math.min(Math.abs(kb),cmag);
+  }
+
+  var kFinal = kb + kd;
+  var L = 0.210;
+  var Rc = Math.abs(kFinal)>0.01?1/Math.abs(kFinal):1e6;
+  var ah = Math.min(60,(L*L)/(8*Rc)*1000);
+
+  // Profiles
+  var N=40, mprof=[], sprof=[];
+  for(var i=0;i<N;i++){
+    var z=i/(N-1);
+    var m=Wh+(Wc-Wh)*(0.5+0.5*Math.tanh((z-0.5)*4));
+    mprof.push(Math.max(0,m));
+    var zc=z-0.5;
+    var sig=-kf*E*tm*zc*0.5e-4+kp*E*tm*zc*0.2e-4;
+    sprof.push(sig);
+  }
+
+  // Time history
+  var hist=[];
+  for(var ti=0;ti<=50;ti++){
+    var tt=ti*0.1;
+    var cf=kf*(1-Math.exp(-tt/0.4))*fsign;
+    var cp=kp*Math.min(1,tt/1.2)*fsign;
+    var ct=kt*Math.min(1,tt/0.8)*fsign;
+    var cd=(S.useDecurler==='yes'&&tt>1.5)?kd*Math.min(1,(tt-1.5)/0.5):0;
+    hist.push({t:tt,c:cf+cp+ct+cd});
+  }
+
+  return {
+    kf:+kf.toFixed(2), kp:+kp.toFixed(2), kd:+kd.toFixed(2),
+    kFinal:+kFinal.toFixed(2), ah:+ah.toFixed(1),
+    kappa_nip_res: +(kappa_nip_residual * fk).toFixed(2),
+    Wh:+Wh.toFixed(1), Wc:+Wc.toFixed(1), dW:+dW.toFixed(2),
+    mprof:mprof, sprof:sprof, hist:hist
+  };
+}
+
+// ============================================================
+// CANVAS SETUP — uses getBoundingClientRect for reliable size
+// ============================================================
+function getCtx(canvasId, wrapId) {
+  var c = document.getElementById(canvasId);
+  var w = document.getElementById(wrapId);
+  var rect = w.getBoundingClientRect();
+  var dpr = window.devicePixelRatio||1;
+  var W = Math.max(rect.width, 100);
+  var H = Math.max(rect.height, 80);
+  c.width  = W*dpr;
+  c.height = H*dpr;
+  c.style.width  = W+'px';
+  c.style.height = H+'px';
+  var ctx = c.getContext('2d');
+  ctx.scale(dpr,dpr);
+  return {ctx:ctx,W:W,H:H};
+}
+
+// ============================================================
+// DRAW
+// ============================================================
+function drawMoisture(prof) {
+  var r = getCtx('cvMoisture','wrapMoisture');
+  var ctx=r.ctx,W=r.W,H=r.H;
+  ctx.clearRect(0,0,W,H);
+  if(!prof||!prof.length)return;
+  var pl={t:18,r:14,b:22,l:40};
+  var cw=W-pl.l-pl.r, ch=H-pl.t-pl.b, N=prof.length;
+  var mx=Math.max.apply(null,prof)*1.3||1;
+
+  ctx.strokeStyle='rgba(36,48,80,.8)'; ctx.lineWidth=1;
+  for(var g=0;g<=4;g++){
+    var gx=pl.l+(g/4)*cw;
+    ctx.beginPath();ctx.moveTo(gx,pl.t);ctx.lineTo(gx,pl.t+ch);ctx.stroke();
+  }
+
+  var fg=ctx.createLinearGradient(0,pl.t,0,pl.t+ch);
+  fg.addColorStop(0,'rgba(239,68,68,.15)');
+  fg.addColorStop(1,'rgba(59,130,246,.15)');
+  ctx.beginPath();
+  ctx.moveTo(pl.l, pl.t);
+  for(var i=0;i<N;i++){
+    var y=pl.t+(i/(N-1))*ch;
+    var x=pl.l+(prof[i]/mx)*cw;
+    ctx.lineTo(x,y);
+  }
+  ctx.lineTo(pl.l,pl.t+ch);
+  ctx.closePath();
+  ctx.fillStyle=fg; ctx.fill();
+
+  var lg=ctx.createLinearGradient(0,pl.t,0,pl.t+ch);
+  lg.addColorStop(0,'#ef4444'); lg.addColorStop(1,'#3b82f6');
+  ctx.strokeStyle=lg; ctx.lineWidth=2;
+  ctx.beginPath();
+  for(var i=0;i<N;i++){
+    var y=pl.t+(i/(N-1))*ch;
+    var x=pl.l+(prof[i]/mx)*cw;
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  ctx.font='9px "JetBrains Mono",monospace';
+  ctx.fillStyle='#ef4444'; ctx.textAlign='left';
+  ctx.fillText('高温側',pl.l+2,pl.t+10);
+  ctx.fillStyle='#3b82f6';
+  ctx.fillText('低温側',pl.l+2,pl.t+ch-2);
+  ctx.fillStyle='#64748b'; ctx.textAlign='center';
+  ctx.fillText('含水率[wt%]→',pl.l+cw/2,H-3);
+}
+
+function drawStress(prof) {
+  var r=getCtx('cvStress','wrapStress');
+  var ctx=r.ctx,W=r.W,H=r.H;
+  ctx.clearRect(0,0,W,H);
+  if(!prof||!prof.length)return;
+  var pl={t:18,r:14,b:22,l:40};
+  var cw=W-pl.l-pl.r, ch=H-pl.t-pl.b, N=prof.length;
+  var am=0; for(var i=0;i<N;i++) am=Math.max(am,Math.abs(prof[i]));
+  am=am*1.3||1;
+
+  ctx.strokeStyle='rgba(36,48,80,.8)'; ctx.lineWidth=1;
+  for(var g=0;g<=4;g++){
+    var gx=pl.l+(g/4)*cw;
+    ctx.beginPath();ctx.moveTo(gx,pl.t);ctx.lineTo(gx,pl.t+ch);ctx.stroke();
+  }
+  var zx=pl.l+cw/2;
+  ctx.strokeStyle='rgba(100,116,139,.5)'; ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(zx,pl.t);ctx.lineTo(zx,pl.t+ch);ctx.stroke();
+  ctx.setLineDash([]);
+
+  for(var i=0;i<N-1;i++){
+    var y1=pl.t+(i/(N-1))*ch, y2=pl.t+((i+1)/(N-1))*ch;
+    var x1=pl.l+(prof[i]/am/2+0.5)*cw, x2=pl.l+(prof[i+1]/am/2+0.5)*cw;
+    ctx.fillStyle=prof[i]>0?'rgba(239,68,68,.12)':'rgba(59,130,246,.12)';
+    ctx.beginPath();
+    ctx.moveTo(zx,y1);ctx.lineTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(zx,y2);
+    ctx.closePath();ctx.fill();
+  }
+  ctx.strokeStyle='#06b6d4'; ctx.lineWidth=2;
+  ctx.beginPath();
+  for(var i=0;i<N;i++){
+    var y=pl.t+(i/(N-1))*ch;
+    var x=pl.l+(prof[i]/am/2+0.5)*cw;
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.font='9px "JetBrains Mono",monospace';
+  ctx.fillStyle='#ef4444'; ctx.textAlign='left';
+  ctx.fillText('高温側',pl.l+2,pl.t+10);
+  ctx.fillStyle='#3b82f6';
+  ctx.fillText('低温側',pl.l+2,pl.t+ch-2);
+  ctx.fillStyle='#64748b'; ctx.textAlign='center';
+  ctx.fillText('←圧縮 ｜ 引張→',pl.l+cw/2,H-3);
+}
+
+function drawCurlHist(hist,frac) {
+  var r=getCtx('cvCurl','wrapCurl');
+  var ctx=r.ctx,W=r.W,H=r.H;
+  ctx.clearRect(0,0,W,H);
+  if(!hist||!hist.length)return;
+  var pl={t:18,r:14,b:22,l:42};
+  var cw=W-pl.l-pl.r, ch=H-pl.t-pl.b, N=hist.length;
+  var maxT=5, am=0;
+  for(var i=0;i<N;i++) am=Math.max(am,Math.abs(hist[i].c));
+  am=am*1.35||1;
+
+  ctx.strokeStyle='rgba(36,48,80,.8)'; ctx.lineWidth=1;
+  for(var g=0;g<=5;g++){
+    var gx=pl.l+(g/5)*cw, gy=pl.t+(g/5)*ch;
+    ctx.beginPath();ctx.moveTo(gx,pl.t);ctx.lineTo(gx,pl.t+ch);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pl.l,gy);ctx.lineTo(pl.l+cw,gy);ctx.stroke();
+  }
+  var zy=pl.t+ch/2;
+  ctx.strokeStyle='rgba(100,116,139,.5)'; ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(pl.l,zy);ctx.lineTo(pl.l+cw,zy);ctx.stroke();
+  ctx.setLineDash([]);
+
+  var drawN=Math.max(2,Math.round((frac||1)*N));
+
+  var fg2=ctx.createLinearGradient(0,pl.t,0,pl.t+ch);
+  fg2.addColorStop(0,'rgba(245,158,11,.2)');
+  fg2.addColorStop(0.5,'rgba(59,130,246,.02)');
+  fg2.addColorStop(1,'rgba(59,130,246,.2)');
+  ctx.beginPath();
+  for(var i=0;i<drawN;i++){
+    var x=pl.l+(hist[i].t/maxT)*cw;
+    var y=pl.t+ch/2-(hist[i].c/am)*(ch/2);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }
+  var lx=pl.l+(hist[drawN-1].t/maxT)*cw;
+  ctx.lineTo(lx,zy); ctx.lineTo(pl.l,zy); ctx.closePath();
+  ctx.fillStyle=fg2; ctx.fill();
+
+  ctx.strokeStyle='#f59e0b'; ctx.lineWidth=2;
+  ctx.beginPath();
+  for(var i=0;i<drawN;i++){
+    var x=pl.l+(hist[i].t/maxT)*cw;
+    var y=pl.t+ch/2-(hist[i].c/am)*(ch/2);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  var last=hist[drawN-1];
+  var ex=pl.l+(last.t/maxT)*cw;
+  var ey=pl.t+ch/2-(last.c/am)*(ch/2);
+  ctx.fillStyle='#f59e0b';
+  ctx.beginPath();ctx.arc(ex,ey,4,0,Math.PI*2);ctx.fill();
+
+  ctx.font='9px "JetBrains Mono",monospace';
+  ctx.fillStyle='#64748b'; ctx.textAlign='center';
+  ctx.fillText('時間[s]',pl.l+cw/2,H-3);
+  for(var g=0;g<=5;g++) ctx.fillText(g,pl.l+(g/5)*cw,pl.t+ch+13);
+  ctx.textAlign='right';
+  ctx.fillText(am.toFixed(1),pl.l-3,pl.t+4);
+  ctx.fillText('0',pl.l-3,zy+4);
+  ctx.fillText((-am).toFixed(1),pl.l-3,pl.t+ch+4);
+}
+
+function drawShape(kappa, ah, frac) {
+  var r=getCtx('cvShape','wrapShape');
+  var ctx=r.ctx,W=r.W,H=r.H;
+  ctx.clearRect(0,0,W,H);
+  var surfY=H-16;
+  ctx.strokeStyle='rgba(36,48,80,.7)'; ctx.lineWidth=1; ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.moveTo(30,surfY);ctx.lineTo(W-30,surfY);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='9px "JetBrains Mono",monospace'; ctx.fillStyle='#374151'; ctx.textAlign='left';
+  ctx.fillText('排出台',32,surfY+12);
+
+  var k=(kappa||0)*(frac||1);
+  var paperW=W-100, cx=W/2, L=0.210, N=100;
+  var col=Math.abs(k)<0.5?'#10b981':(k>0?'#ef4444':'#3b82f6');
+  ctx.strokeStyle=col; ctx.lineWidth=3;
+  ctx.beginPath();
+  for(var i=0;i<=N;i++){
+    var s=(i/N-0.5)*L;
+    var px=cx+(paperW/L)*s;
+    var curveY=(k/2)*((L/2)*(L/2)-s*s);
+    var py=surfY-4-curveY*800;
+    if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  ctx.font='10px "Noto Sans JP",sans-serif'; ctx.textAlign='center'; ctx.fillStyle=col;
+  if(Math.abs(k)<0.5) ctx.fillText('✓ フラット（カールなし）',cx,15);
+  else if(k>0)        ctx.fillText('▲ 上カール（低温側へ凸）',cx,15);
+  else                ctx.fillText('▼ 下カール（高温側へ凸）',cx,15);
+
+  if(Math.abs(k)>=0.5 && ah>0){
+    var hPx=Math.min(50,ah*2);
+    var ax=cx+paperW/2+10;
+    var ay1=k>0?surfY-4-hPx:surfY-4;
+    var ay2=k>0?surfY-4:surfY-4+hPx;
+    ctx.strokeStyle='#64748b'; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(ax,ay1);ctx.lineTo(ax,ay2);ctx.stroke();
+    ctx.fillStyle='#94a3b8'; ctx.textAlign='left'; ctx.font='9px "JetBrains Mono",monospace';
+    ctx.fillText('h='+ah+'mm',ax+4,(ay1+ay2)/2+3);
+  }
+}
+
+function drawAll(frac) {
+  if(!R.mprof) return;
+  drawMoisture(R.mprof);
+  drawStress(R.sprof);
+  drawCurlHist(R.hist, frac);
+  drawShape(R.kFinal, R.ah, frac);
+}
+
+// ============================================================
+// RESULTS
+// ============================================================
+function showResults() {
+  document.getElementById('res-final').textContent  = R.kFinal;
+  document.getElementById('res-fusing').textContent = R.kf;
+  document.getElementById('res-nip').textContent    = R.kappa_nip_res !== undefined ? R.kappa_nip_res : '—';
+  document.getElementById('res-path').textContent   = R.kp;
+  document.getElementById('res-decurl').textContent = R.kd;
+  document.getElementById('res-height').textContent = R.ah;
+
+  var ind=document.getElementById('curl-indicator');
+  ind.className='curl-indicator';
+  if(Math.abs(R.kFinal)<0.5){
+    ind.classList.add('curl-flat');
+    ind.textContent='✓ カールなし（許容範囲内）';
+  } else if(R.kFinal>0){
+    ind.classList.add('curl-up');
+    ind.textContent='↑ 上向きカール（低温側に向かう）';
+  } else {
+    ind.classList.add('curl-down');
+    ind.textContent='↓ 下向きカール（高温側に向かう）';
+  }
+  document.getElementById('res-note').textContent=
+    '高温側:'+R.Wh+'wt%  低温側:'+R.Wc+'wt%  水分移動量:Δ'+R.dW+'wt%';
+}
+
+// ============================================================
+// RUN
+// ============================================================
+function runSim() {
+  if(animId){cancelAnimationFrame(animId);animId=null;}
+
+  var btn=document.getElementById('runBtn');
+  btn.classList.add('running');
+  btn.textContent='● 計算中...';
+  document.getElementById('progressBar').style.width='0%';
+
+  // Compute (synchronous)
+  R = compute();
+
+  // Animate
+  var t0=null, dur=1200;
+  function frame(ts){
+    if(!t0) t0=ts;
+    var frac=Math.min(1,(ts-t0)/dur);
+    document.getElementById('progressBar').style.width=(frac*100)+'%';
+    drawAll(frac);
+    if(frac<1){
+      animId=requestAnimationFrame(frame);
+    } else {
+      btn.classList.remove('running');
+      btn.textContent='▶ シミュレーション実行';
+      showResults();
+      animId=null;
+    }
+  }
+  animId=requestAnimationFrame(frame);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    R=compute();
+    drawAll(1);
+    showResults();
+    document.getElementById('progressBar').style.width='100%';
+  }, 200);
+});
+window.addEventListener('resize', function(){
+  if(R.mprof) drawAll(1);
+});
+</script>
+</body>
+</html>
